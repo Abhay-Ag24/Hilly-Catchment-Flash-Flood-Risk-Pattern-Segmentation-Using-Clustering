@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hilly Catchment Flash-Flood Risk Pattern Segmentation</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header Banner -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-title">
+        <div class="brand-icon">🌊</div>
+        <div class="brand-text">
+          <h1>Hilly Catchment Flash-Flood Risk Pattern Segmentation</h1>
+          <p>Unsupervised Machine Learning, Morphometric-Meteorological Segmentation & Validation Engine</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-yellow">IMD Rainfall Data</span>
+        <span class="badge badge-yellow">NASA/USGS SRTM DEM</span>
+        <span class="badge badge-white">K-Means & Hierarchical</span>
+        <span class="badge badge-white">PCA Visualisation</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- KPI Summary Row -->
+    <section class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Analyzed Catchments</div>
+        <div class="kpi-value" id="kpi-catchments">1,200</div>
+        <div class="kpi-sub">Himalayas & Western Ghats Basins</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Cluster Structure</div>
+        <div class="kpi-value" id="kpi-clusters">K = 4</div>
+        <div class="kpi-sub" id="kpi-cluster-sub">Defensible Optimal Risk Tiers</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active Silhouette Score</div>
+        <div class="kpi-value" id="kpi-silhouette">0.123</div>
+        <div class="kpi-sub" id="kpi-silhouette-sub">Euclidean Cluster Separation</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Cluster Stability Index</div>
+        <div class="kpi-value" id="kpi-stability">0.939</div>
+        <div class="kpi-sub">Rand Consistency Across Random Seeds</div>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-overview">📊 Overview & Data Explorer</button>
+      <button class="tab-btn" data-tab="tab-clustering">⚙️ Clustering & Metrics</button>
+      <button class="tab-btn" data-tab="tab-pca">🌌 PCA Visualisation</button>
+      <button class="tab-btn" data-tab="tab-profiles">🎯 Cluster Profiles & Risk Tiers</button>
+      <button class="tab-btn" data-tab="tab-ethics">⚖️ Limitations & Ethics</button>
+      <button class="tab-btn" data-tab="tab-export">📥 Data & Pipeline Export</button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW & DATA EXPLORER -->
+    <section class="tab-panel active" id="tab-overview">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Catchment Hydrological & Morphometric Data Explorer</h2>
+            <p class="card-subtitle">Objective 1: Ingestion of IMD rainfall & NASA/USGS SRTM elevation, median imputation, and standard scaling</p>
+          </div>
+          <div class="controls-bar">
+            <div class="control-group">
+              <label for="filter-region">Basin Region:</label>
+              <select id="filter-region" class="custom-select">
+                <option value="ALL">All Basins (1,200)</option>
+                <option value="Upper_Ganga_Himalaya">Upper Ganga (Himalaya)</option>
+                <option value="Western_Ghats_Windward">Western Ghats (Windward)</option>
+                <option value="Teesta_Eastern_Himalaya">Teesta (Eastern Himalaya)</option>
+                <option value="Beas_Western_Himalaya">Beas (Western Himalaya)</option>
+                <option value="Western_Ghats_Leeward">Western Ghats (Leeward)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <input type="text" id="search-catchment" class="custom-input" placeholder="Search Catchment ID...">
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Objective 1 Data Pipeline:</strong> Raw data integrates <strong>IMD gridded rainfall</strong> (24h peak rainfall, max hourly cloudburst intensity, consecutive wet days, precipitation concentration index) with <strong>NASA/USGS SRTM 30m DEM</strong> (mean elevation, catchment relief, mean slope, drainage density, topographic wetness index, hypsometric integral, ruggedness number). Missing gauge records (~3.5%) were treated via median imputation, and continuous features were normalized using <code>StandardScaler</code> ($\mu=0, \sigma=1$).
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="catchments-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Basin Region</th>
+                <th>Terrain Zone</th>
+                <th>Relief (m)</th>
+                <th>Slope (°)</th>
+                <th>Rainfall (mm)</th>
+                <th>Intensity (mm/hr)</th>
+                <th>Lag Time (hr)</th>
+                <th id="th-assigned-risk">Assigned Risk Tier (K=4)</th>
+              </tr>
+            </thead>
+            <tbody id="catchments-tbody">
+              <!-- Dynamically populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: CLUSTERING & QUANTITATIVE METRICS -->
+    <section class="tab-panel" id="tab-clustering">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Partition Clustering (K-Means) & Hierarchical Validation</h2>
+            <p class="card-subtitle">Objective 2: Evaluation of multiple cluster counts, distance metrics (Euclidean vs. Manhattan), and validation scores</p>
+          </div>
+          <div class="controls-bar">
+            <div class="control-group">
+              <label for="select-k">Select Cluster Count (K):</label>
+              <select id="select-k" class="custom-select" style="font-weight: 700; border-color: var(--primary-yellow);">
+                <option value="3">K = 3 (Broad Regional Risk Tiers)</option>
+                <option value="4" selected>K = 4 (Optimal Defensible Structure)</option>
+                <option value="5">K = 5 (Detailed Sub-Basin Tiers)</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="select-metric">Distance Metric:</label>
+              <select id="select-metric" class="custom-select">
+                <option value="euclidean" selected>Euclidean Distance (L2)</option>
+                <option value="manhattan">Manhattan Distance (L1 - Outlier Robust)</option>
+                <option value="hierarchical">Hierarchical (Agglomerative Ward)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout" id="active-config-banner" style="background-color: #fffdf5; border-left-color: var(--primary-yellow); font-size: 0.86rem;">
+          <strong>Active Model Configuration:</strong> <span id="banner-model-desc">K-Means with Euclidean Distance (K = 4)</span> &bull; 
+          <span id="banner-model-stats">WCSS: 12,336.9 | Silhouette: 0.123 | Davies-Bouldin: 2.269</span>
+        </div>
+
+        <div class="grid-2">
+          <!-- WCSS Elbow Chart -->
+          <div class="viz-box">
+            <h3 class="card-title" style="font-size: 0.95rem;">Within-Cluster Sum of Squares (WCSS / Elbow Curve)</h3>
+            <p class="card-subtitle" style="margin-bottom: 12px;">Elbow inflection demonstrates diminishing return in inertia reduction</p>
+            <div class="viz-canvas-wrapper">
+              <canvas id="wcss-chart" class="viz-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Validation Scores (Silhouette & Davies-Bouldin) -->
+          <div class="viz-box">
+            <h3 class="card-title" style="font-size: 0.95rem;">Validation Scores Comparison Across K</h3>
+            <p class="card-subtitle" style="margin-bottom: 12px;">Silhouette Score (higher is better) & Davies-Bouldin Index (lower is better)</p>
+            <div class="viz-canvas-wrapper">
+              <canvas id="metrics-chart" class="viz-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantitative Evaluation Table -->
+        <div style="margin-top: 24px;">
+          <h3 class="card-title" style="font-size: 1rem; margin-bottom: 8px;">Quantitative Configuration Benchmark Matrix</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Distance Metric</th>
+                  <th>Cluster Count (K)</th>
+                  <th>WCSS / Inertia</th>
+                  <th>Silhouette Score</th>
+                  <th>Davies-Bouldin Index</th>
+                  <th>Selection Status</th>
+                </tr>
+              </thead>
+              <tbody id="evaluations-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: PCA VISUALISATION -->
+    <section class="tab-panel" id="tab-pca">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Principal Component Analysis (PCA) & Factor Loadings</h2>
+            <p class="card-subtitle">Objective 2: Visualizing high-dimensional morphometric-meteorological space and dominant driving vectors</p>
+          </div>
+          <div class="controls-bar">
+            <span class="badge badge-yellow">PC1: 24.9% (Topographic Relief & Slope)</span>
+            <span class="badge badge-yellow">PC2: 16.5% (Precipitation & Cloudburst Intensity)</span>
+            <span class="badge badge-white">PC3: 10.4% (Catchment Area & Lag)</span>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <!-- 2D PCA Scatter Plot -->
+          <div class="viz-box">
+            <h3 class="card-title" style="font-size: 0.95rem;" id="pca-title">2D PCA Projection (Colored by K=4 Clusters)</h3>
+            <p class="card-subtitle" style="margin-bottom: 10px;">Hover or touch any point to inspect individual catchment attributes</p>
+            <div class="viz-canvas-wrapper">
+              <canvas id="pca-scatter" class="viz-canvas"></canvas>
+              <div id="pca-tooltip" class="viz-tooltip"></div>
+            </div>
+          </div>
+
+          <!-- PCA Loadings / Biplot Factors -->
+          <div class="viz-box">
+            <h3 class="card-title" style="font-size: 0.95rem;">Factor Loadings (Biplot Direction Vectors)</h3>
+            <p class="card-subtitle" style="margin-bottom: 10px;">Relative influence of original features on PC1 (Topography) and PC2 (Rainfall)</p>
+            <div class="viz-canvas-wrapper">
+              <canvas id="pca-loadings-chart" class="viz-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: CLUSTER PROFILES & RISK TIERS -->
+    <section class="tab-panel" id="tab-profiles">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title" id="profiles-heading">Interpreted Catchment Flash-Flood Risk Profiles (K = 4)</h2>
+            <p class="card-subtitle">Objective 3: Dynamic hydrological risk segmentation, feature profile radar, and actionable mitigations</p>
+          </div>
+          <div class="controls-bar">
+            <span class="badge badge-yellow" id="badge-profiles-count">4 Active Clusters</span>
+          </div>
+        </div>
+
+        <!-- Risk Tier Cards Grid -->
+        <div class="risk-cards-grid" id="risk-cards-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <!-- Radar Comparison & Centroid Table -->
+        <div class="grid-2" style="margin-top: 24px;">
+          <div class="viz-box">
+            <h3 class="card-title" style="font-size: 0.95rem;">Standardized Feature Profile Radar Chart</h3>
+            <p class="card-subtitle" style="margin-bottom: 10px;">Normalized z-score footprint across morphometric & rainfall dimensions</p>
+            <div class="viz-canvas-wrapper">
+              <canvas id="radar-chart" class="viz-canvas"></canvas>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="card-title" style="font-size: 0.95rem; margin-bottom: 8px;">Cluster Centroid Comparison (Physical Units)</h3>
+            <div class="table-responsive">
+              <table class="data-table" id="centroids-table">
+                <thead id="centroids-thead">
+                  <!-- Populated via JS -->
+                </thead>
+                <tbody id="centroids-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LIMITATIONS & ETHICS -->
+    <section class="tab-panel" id="tab-ethics">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Critical Limitations, Sampling Biases & Ethical Use Framework</h2>
+          <span class="badge badge-yellow">Objective 3 Requirement</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="callout" style="border-left-color: #b45309; background-color: #fffdf5;">
+            <h3 style="color: #78350f; font-size: 1rem; margin-bottom: 6px;">1. Orographic Rain-Gauge Sparsity & Spatial Sampling Bias</h3>
+            <p style="font-size: 0.85rem; line-height: 1.5;">
+              India Meteorological Department (IMD) telemetry weather stations are historically installed in accessible valley floors, district headquarters, and river confluences. In high-altitude terrain (&gt;2,500m), rain gauge density drops sharply. Consequently, micro-scale convective cloudburst events occurring across isolated mountain ridgelines can remain undetected or smoothed out in 0.25° gridded products, creating a false perception of safety in remote upper catchments.
+            </p>
+          </div>
+
+          <div class="callout" style="border-left-color: #d97706; background-color: #fffdf5;">
+            <h3 style="color: #92400e; font-size: 1rem; margin-bottom: 6px;">2. SRTM 30m Digital Elevation Model Limitations</h3>
+            <p style="font-size: 0.85rem; line-height: 1.5;">
+              While NASA/USGS SRTM 1-arc-second (~30m) elevation data offers global coverage, the 30m horizontal resolution tends to smooth incised bedrock gorges, ephemeral chutes, and micro-debris chutes. Furthermore, radar shadow, geometric layover, and foreshortening on extreme Himalayan cliff faces (&gt;45°) introduce localized interpolation noise into derived slope and Topographic Wetness Index (TWI) values.
+            </p>
+          </div>
+
+          <div class="callout" style="border-left-color: #f59e0b; background-color: #fffdf5;">
+            <h3 style="color: #b45309; font-size: 1rem; margin-bottom: 6px;">3. Ethical Deployment & Algorithmic Justice</h3>
+            <p style="font-size: 0.85rem; line-height: 1.5;">
+              <strong>Preventing Discriminatory Disinvestment:</strong> Designating a hilly catchment as "Tier 1: Extreme Risk" must not be leveraged by administrative bodies or insurance underwriters to justify systematic abandonment, insurance blacklisting, or denial of infrastructure subsidies to vulnerable tribal and montane subsistence farming communities. Instead, cluster designations must mandate affirmative government investment in decentralized automated sirens, community check-dams, and agroforestry terracing.
+            </p>
+          </div>
+
+          <div class="callout" style="border-left-color: #eab308; background-color: #fffdf5;">
+            <h3 style="color: #854d0e; font-size: 1rem; margin-bottom: 6px;">4. Early Warning Calibration: False Alarms vs. Lethal False Negatives</h3>
+            <p style="font-size: 0.85rem; line-height: 1.5;">
+              A flash flood in a 2-hour response time catchment gives zero margin for operational hesitation. While false negatives cause catastrophic casualties, excessive false alarms induce public cynicism and warning disregard. Operational deployment must treat cluster boundaries not as binary tripwires, but as Bayesian prior distributions that condition real-time Doppler radar and telemetry alerts.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: DATA & PIPELINE EXPORT -->
+    <section class="tab-panel" id="tab-export">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Project Deliverables & Reproducibility Suite</h2>
+          <span class="badge badge-yellow">Submission & Execution</span>
+        </div>
+
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 18px;">
+          All code, data, and notebooks are preserved in the project directory for immediate academic replication and peer evaluation.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+          <div class="risk-card">
+            <h3 class="risk-title" style="margin-bottom: 8px;">📄 Processed Dataset (CSV)</h3>
+            <p class="risk-desc">1,200 catchments with imputed values, scaled features, and cluster memberships.</p>
+            <button class="btn" id="btn-download-csv">⬇️ Download Cleaned CSV</button>
+          </div>
+
+          <div class="risk-card">
+            <h3 class="risk-title" style="margin-bottom: 8px;">📊 Model Metrics & JSON</h3>
+            <p class="risk-desc">Complete JSON bundle including PCA loadings, eigenvalues, and evaluation scores.</p>
+            <button class="btn btn-secondary" id="btn-download-json">⬇️ Download Master JSON</button>
+          </div>
+
+          <div class="risk-card">
+            <h3 class="risk-title" style="margin-bottom: 8px;">📓 Python Pipeline & Notebook</h3>
+            <p class="risk-desc">Jupyter Notebook and standalone Python scripts for scikit-learn / scipy execution.</p>
+            <button class="btn btn-secondary" onclick="alert('Located at: notebooks/Flash_Flood_Risk_Segmentation.ipynb')">📁 View File Paths</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>Hilly Catchment Flash-Flood Risk Pattern Segmentation Using Clustering &bull; Academic Research Suite &bull; IMD & NASA/USGS SRTM</p>
+  </footer>
+
+  <script src="dataset.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
